@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package isolator;
+
+message InitializeIsolateMessage {
+  uint32 max_cpu_time = 1;
+  uint32 max_execution_time = 2;
+  uint32 max_resource_requests = 3;
+}
+
+message IsolateInitializedMessage {
+  string isolate_id = 1;
+}
+
+message ScheduleIsolateScriptMessage {
+  string content = 1;
+}
+
+message IsolateScriptDoneMessage {
+  bool error = 1;
+  bool killed = 2;
+}
+
+message GetIsolateStatusMessage {
+
+}
+
+message IsolateScriptResourceRequestMessage {
+  string resource_id = 1;
+  string kind = 2;
+  bytes payload = 3;
+}
+
+message IsolateScriptResourceResponseMessage {
+  string resource_id = 1;
+  string kind = 2;
+  bytes payload = 3;
+}
+
+message IsolateRequest {
+  oneof message {
+    InitializeIsolateMessage initialize_message = 1;
+    ScheduleIsolateScriptMessage schedule_message = 2;
+    IsolateScriptResourceRequestMessage script_request = 3;
+  }
+}
+
+message IsolateResponse {
+  oneof message {
+    IsolateInitializedMessage initialized_message = 1;
+    IsolateScriptResourceResponseMessage script_response = 2;
+  }
+}
+
+message GetStatusRequest {
+
+}
+
+message GetStatusResponse {
+
+}
+
+message KillIsolatesRequest {
+  bool all = 1;
+  repeated string isolate_ids = 2;
+}
+
+message KillIsolatesResponse {
+  repeated string killed_ids = 1;
+}
+
+service Isolator {
+  rpc AcquireIsolate(stream IsolateRequest) returns (stream IsolateResponse) {}
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {}
+  rpc KillIsolates(KillIsolatesRequest) returns (KillIsolatesResponse) {}
+}
