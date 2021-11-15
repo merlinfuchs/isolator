@@ -1,0 +1,13 @@
+[package]
+name = "ext_resources"
+version = "0.1.0"
+description = "Extension responsible for handling resource requests"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+deno_core = "0.107.0"
+serde = { version = "1.0.129", features = ["derive"] }
+tokio = { version = "1.13", features = ["sync"] }

@@ -11,7 +11,9 @@ fn build_protobuf() {
 }
 
 fn create_runtime() -> JsRuntime {
-    let extensions = vec![];
+    let extensions = vec![
+        ext_resources::init()
+    ];
 
     let mut runtime = JsRuntime::new(RuntimeOptions {
         will_snapshot: true,
