@@ -95,7 +95,7 @@ pub struct WrappedRuntime {
 }
 
 impl WrappedRuntime {
-    fn new() -> Self {
+    pub fn new() -> Self {
         return Self {
             state: Arc::new(SharedRuntimeState {
                 time_table: Mutex::new(ExecutionTimeTable::default()),
@@ -142,14 +142,14 @@ impl WrappedRuntime {
     }
 
     pub fn prepare_runtime(&mut self) {
-        let runtime = self.runtime.as_mut().unwrap();
+        /* let runtime = self.runtime.as_mut().unwrap();
         runtime.execute_script(
             "<cleanup>",
             r#"
             __bootstrapRuntime();
             delete __boostrapRuntime;
         "#,
-        ).unwrap();
+        ).unwrap(); */
     }
 
     fn prepare_wakeup(&mut self) -> Result<(), AnyError> {
@@ -252,5 +252,9 @@ impl WrappedRuntime {
         } else {
             self.drive_execution(script).await
         }
+    }
+
+    pub fn teardown_runtime() {
+
     }
 }

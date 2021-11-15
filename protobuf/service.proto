@@ -41,14 +41,14 @@ message IsolateRequest {
   oneof message {
     InitializeIsolateMessage initialize_message = 1;
     ScheduleIsolateScriptMessage schedule_message = 2;
-    IsolateScriptResourceRequestMessage script_request = 3;
+    IsolateScriptResourceResponseMessage script_response = 3;
   }
 }
 
 message IsolateResponse {
   oneof message {
     IsolateInitializedMessage initialized_message = 1;
-    IsolateScriptResourceResponseMessage script_response = 2;
+    IsolateScriptResourceRequestMessage script_request = 2;
   }
 }
 

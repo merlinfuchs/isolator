@@ -7,6 +7,9 @@ use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use crate::GlobalState;
+use crate::manager::RuntimeContext;
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 
 use crate::runtime::{WrappedRuntime, SharedRuntimeState};
 
@@ -15,7 +18,8 @@ pub mod isolator {
 }
 
 pub struct IsolatorService {
-    state: Arc<GlobalState>
+    pub state: Arc<GlobalState>,
+    pub scheduler: mpsc::Sender<RuntimeContext>,
 }
 
 #[tonic::async_trait]
@@ -23,9 +27,43 @@ impl Isolator for IsolatorService {
     type AcquireIsolateStream = Pin<Box<dyn Stream<Item=Result<IsolateResponse, Status>> + Send + 'static>>;
 
     async fn acquire_isolate(&self, request: Request<Streaming<IsolateRequest>>) -> Result<Response<Self::AcquireIsolateStream>, Status> {
-        // this function must be able to communicate with the associate runtime in both directions
-        // most likely through a sender -> receiver in each direction
-        unimplemented!()
+        let (to_sender, to_receiver) = mpsc::channel(10);
+        let (from_sender, mut from_receiver) = mpsc::channel(10);
+
+        let (response_sender, response_receiver) = mpsc::channel(10);
+
+        let context = RuntimeContext {
+            receiver: to_receiver,
+            sender: from_sender,
+        };
+
+        self.scheduler.send(context).await;
+        let mut stream = request.into_inner();
+
+        loop {
+            tokio::select! {
+                resp = from_receiver.recv() => {
+                    if let Some(resp) = resp {
+                        response_sender.send(Ok(resp)).await;
+                    } else {
+                        break;
+                    }
+                }
+                req = stream.next() => {
+                    if let Some(req) = req {
+                        if let Ok(req) = req {
+                            to_sender.send(req).await;
+                        } else {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(response_receiver))))
     }
 
     async fn get_status(&self, request: Request<GetStatusRequest>) -> Result<Response<GetStatusResponse>, Status> {
