@@ -23,6 +23,8 @@ impl Isolator for IsolatorService {
     type AcquireIsolateStream = Pin<Box<dyn Stream<Item=Result<IsolateResponse, Status>> + Send + 'static>>;
 
     async fn acquire_isolate(&self, request: Request<Streaming<IsolateRequest>>) -> Result<Response<Self::AcquireIsolateStream>, Status> {
+        // this function must be able to communicate with the associate runtime in both directions
+        // most likely through a sender -> receiver in each direction
         unimplemented!()
     }
 
