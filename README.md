@@ -10,4 +10,4 @@ over the connection and perform some other script-related actions. The script ca
 send so-called "Resource Requests" over the connection to the client. The client can fulfill these requests and respond
 to the request with a so-called "Resource Response" again over the connection.  
 The client is therefore responsible for implementing necessary APIs to access external resources from the script. This
-communication concept makes it possible to provide a simple implementation for a wide variety of applications.
+communication concept makes it possible to provide a simple and secure implementation for a wide variety of applications.
