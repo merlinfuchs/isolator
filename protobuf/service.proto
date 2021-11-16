@@ -18,13 +18,25 @@ message ScheduleIsolateScriptMessage {
     MODULE = 1;
   }
 
-  ScriptKind kind = 1;
-  string content = 2;
+  string nonce = 1;
+  ScriptKind kind = 2;
+  string content = 3;
 }
 
 message IsolateScriptDoneMessage {
-  bool error = 1;
-  bool killed = 2;
+  message IsolateScriptError {
+    string text = 2;
+  }
+  message IsolateScriptSuccess {
+    // JSON representation of the javascript result
+    string data = 1;
+  }
+
+  string nonce = 1;
+  oneof result {
+    IsolateScriptSuccess success = 2;
+    IsolateScriptError error = 3;
+  }
 }
 
 message GetIsolateStatusMessage {
@@ -39,14 +51,13 @@ message IsolateScriptResourceRequestMessage {
 
 message IsolateScriptResourceResponseMessage {
   string resource_id = 1;
-  string kind = 2;
   bytes payload = 3;
 }
 
 message IsolateRequest {
   oneof message {
     InitializeIsolateMessage initialize_message = 1;
-    ScheduleIsolateScriptMessage schedule_message = 2;
+    ScheduleIsolateScriptMessage script_schedule_message = 2;
     IsolateScriptResourceResponseMessage script_resource_response = 3;
   }
 }
@@ -54,7 +65,8 @@ message IsolateRequest {
 message IsolateResponse {
   oneof message {
     IsolateInitializedMessage initialized_message = 1;
-    IsolateScriptResourceRequestMessage script_resource_request = 2;
+    IsolateScriptDoneMessage script_done_message = 2;
+    IsolateScriptResourceRequestMessage script_resource_request = 3;
   }
 }
 
