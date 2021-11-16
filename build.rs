@@ -1,6 +1,6 @@
 use std::env;
-use std::path::{Path, PathBuf};
-use deno_core::{JsRuntime, RuntimeOptions, Extension};
+use std::path::{PathBuf};
+use deno_core::{JsRuntime, RuntimeOptions};
 
 fn build_protobuf() {
     tonic_build::configure()
@@ -15,7 +15,7 @@ fn create_runtime() -> JsRuntime {
         ext_resources::init()
     ];
 
-    let mut runtime = JsRuntime::new(RuntimeOptions {
+    let runtime = JsRuntime::new(RuntimeOptions {
         will_snapshot: true,
         extensions,
         ..Default::default()
