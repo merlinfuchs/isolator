@@ -1,9 +1,6 @@
-use std::borrow::BorrowMut;
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::future::Future;
 use std::mem;
-use std::os::unix::raw::time_t;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -11,11 +8,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
 use deno_core::{JsRuntime, OpState, RuntimeOptions, Snapshot};
-use deno_core::v8::{CreateParams, IsolateHandle};
+use deno_core::v8::{CreateParams, IsolateHandle, Global, Value};
 use deno_core::error::{AnyError, generic_error};
 use futures::task::{Waker};
-use futures_util::task::{ArcWake, waker, waker_ref};
-use tokio::sync::oneshot;
+use futures_util::task::{ArcWake, waker_ref};
 
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNTIME_SNAPSHOT.bin"));
 const DEFAULT_SOFT_HEAP_LIMIT: usize = 1 << 20;
@@ -234,12 +230,11 @@ impl WrappedRuntime {
         None
     }
 
-    async fn drive_execution(&mut self, script: String) -> Result<(), Box<dyn std::error::Error>> {
-        self.prepare_wakeup();
+    async fn drive_execution(&mut self, script: String) -> Result<Global<Value>, AnyError> {
+        self.prepare_wakeup()?;
 
         let runtime = self.runtime.as_mut().unwrap();
-        let res = runtime.execute_script("", script.as_str());
-        println!("{:?}", res);
+        let res = runtime.execute_script("", script.as_str())?;
 
         self.cleanup_wakeup();
 
@@ -250,10 +245,10 @@ impl WrappedRuntime {
             }
         }?;
 
-        Ok(())
+        Ok(res)
     }
 
-    pub async fn execute_script(&mut self, script: String) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn execute_script(&mut self, script: String) -> Result<Global<Value>, AnyError> {
         let execution_time_limit = {
             let resource_table = &mut *self.resource_table();
             resource_table.execution_time_limit
@@ -272,5 +267,5 @@ impl WrappedRuntime {
         }
     }
 
-    pub fn teardown_runtime() {}
+    pub fn _teardown_runtime() {}
 }

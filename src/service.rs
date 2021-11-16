@@ -4,14 +4,10 @@ use tonic::{Status, Response, Request, Streaming};
 use std::pin::Pin;
 use futures_core::Stream;
 use futures_util::StreamExt;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use crate::GlobalState;
 use crate::manager::ServiceChannelPair;
 use tokio::sync::mpsc;
-use tokio_stream::wrappers::ReceiverStream;
-
-use crate::runtime::{WrappedRuntime, SharedRuntimeState};
 
 pub mod isolator {
     tonic::include_proto!("isolator");
@@ -35,7 +31,9 @@ impl Isolator for IsolatorService {
             sender: from_sender,
         };
 
-        self.scheduler.send(service_c).await;
+        if let Err(_) = self.scheduler.send(service_c).await {
+            panic!("Thread scheduler unavailable");
+        }
         let mut stream = request.into_inner();
 
         let output = async_stream::try_stream! {
@@ -52,7 +50,8 @@ impl Isolator for IsolatorService {
                         if let Some(req) = req {
                             if let Ok(req) = req {
                                 if let Some(msg) = req.message {
-                                    to_sender.send(msg).await;
+                                    let res = to_sender.send(msg).await;
+                                    if let Err(_) = res { break; }
                                 }
                             } else {
                                 break;
@@ -68,11 +67,11 @@ impl Isolator for IsolatorService {
         Ok(Response::new(Box::pin(output) as Self::AcquireIsolateStream))
     }
 
-    async fn get_status(&self, request: Request<GetStatusRequest>) -> Result<Response<GetStatusResponse>, Status> {
+    async fn get_status(&self, _request: Request<GetStatusRequest>) -> Result<Response<GetStatusResponse>, Status> {
         Ok(Response::new(GetStatusResponse::default()))
     }
 
-    async fn kill_isolates(&self, request: Request<KillIsolatesRequest>) -> Result<Response<KillIsolatesResponse>, Status> {
+    async fn kill_isolates(&self, _request: Request<KillIsolatesRequest>) -> Result<Response<KillIsolatesResponse>, Status> {
         Ok(Response::new(KillIsolatesResponse::default()))
     }
 }
