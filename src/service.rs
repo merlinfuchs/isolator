@@ -30,8 +30,6 @@ impl Isolator for IsolatorService {
         let (to_sender, to_receiver) = mpsc::channel(10);
         let (from_sender, mut from_receiver) = mpsc::channel(10);
 
-        let (response_sender, response_receiver) = mpsc::channel(10);
-
         let context = RuntimeContext {
             receiver: to_receiver,
             sender: from_sender,
@@ -40,30 +38,32 @@ impl Isolator for IsolatorService {
         self.scheduler.send(context).await;
         let mut stream = request.into_inner();
 
-        loop {
-            tokio::select! {
-                resp = from_receiver.recv() => {
-                    if let Some(resp) = resp {
-                        response_sender.send(Ok(resp)).await;
-                    } else {
-                        break;
-                    }
-                }
-                req = stream.next() => {
-                    if let Some(req) = req {
-                        if let Ok(req) = req {
-                            to_sender.send(req).await;
+        let output = async_stream::try_stream! {
+            loop {
+                tokio::select! {
+                    resp = from_receiver.recv() => {
+                        if let Some(resp) = resp {
+                            yield resp
                         } else {
                             break;
                         }
-                    } else {
-                        break;
+                    }
+                    req = stream.next() => {
+                        if let Some(req) = req {
+                            if let Ok(req) = req {
+                                to_sender.send(req).await;
+                            } else {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
                     }
                 }
             }
-        }
+        };
 
-        Ok(Response::new(Box::pin(ReceiverStream::new(response_receiver))))
+        Ok(Response::new(Box::pin(output) as Self::AcquireIsolateStream))
     }
 
     async fn get_status(&self, request: Request<GetStatusRequest>) -> Result<Response<GetStatusResponse>, Status> {

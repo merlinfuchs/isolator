@@ -10,4 +10,5 @@ path = "lib.rs"
 [dependencies]
 deno_core = "0.107.0"
 serde = { version = "1.0.129", features = ["derive"] }
-tokio = { version = "1.13", features = ["sync"] }
+tokio = { version = "1.13", features = ["sync", "time"] }
+uuid = { version = "0.8.2", features = ["v4"] }

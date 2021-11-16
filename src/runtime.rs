@@ -238,11 +238,13 @@ impl WrappedRuntime {
         self.prepare_wakeup();
 
         let runtime = self.runtime.as_mut().unwrap();
-        runtime.execute_script("", script.as_str());
+        let res = runtime.execute_script("", script.as_str());
+        println!("{:?}", res);
 
         self.cleanup_wakeup();
 
         loop {
+            println!("Poll");
             if let Some(result) = self.poll_and_wait().await {
                 break result;
             }

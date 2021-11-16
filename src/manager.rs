@@ -9,7 +9,13 @@ use deno_core::OpState;
 use ext_resources::ResourceResponse;
 use tokio::sync::mpsc;
 use crate::runtime::WrappedRuntime;
-use crate::service::isolator::{IsolateRequest, IsolateResponse, isolate_request::Message::{InitializeMessage, ScheduleMessage, ScriptResourceResponse}};
+use crate::service::isolator::{
+    IsolateRequest,
+    IsolateResponse,
+    IsolateScriptResourceRequestMessage,
+    isolate_request::Message::{InitializeMessage, ScheduleMessage, ScriptResourceResponse},
+    isolate_response::Message::{ScriptResourceRequest}
+};
 
 pub struct RuntimeContext {
     pub receiver: mpsc::Receiver<IsolateRequest>,
@@ -17,23 +23,22 @@ pub struct RuntimeContext {
 }
 
 pub fn runtime_manager(state: Arc<GlobalState>, mut context: RuntimeContext) {
-    let tokio_runtime = tokio::runtime::Builder::new_current_thread()
+    let mut tokio_runtime = tokio::runtime::Builder::new_current_thread()
         // IO isn't enabled because communication only happens through channels
         .enable_time()
         .build()
         .unwrap();
+    let local_set = tokio::task::LocalSet::new();
 
     let mut runtime = WrappedRuntime::new();
-    runtime.create_runtime();
+    runtime.create_runtime(); 
     runtime.prepare_runtime();
 
     let (resource_request_sender, mut resource_request_receiver) = mpsc::channel::<ext_resources::ResourceRequest>(10);
 
     runtime.op_state().borrow_mut().put(Some(resource_request_sender));
 
-    tokio_runtime.block_on(async move {
-        runtime.execute_script(String::from("1 + 1")).await;
-
+    local_set.block_on(&mut tokio_runtime, async move {
         loop {
             tokio::select! {
                 req = context.receiver.recv() => {
@@ -62,26 +67,31 @@ pub fn runtime_manager(state: Arc<GlobalState>, mut context: RuntimeContext) {
                                 }
                             },
                             Some(ScheduleMessage(msg)) => {
-                                println!("schedule");
+                                tokio::task::spawn_local(runtime.execute_script(msg.content));
                             },
                             Some(ScriptResourceResponse(msg)) => {
                                 let op_state = runtime.op_state();
                                 let mut borrowed_op_state = op_state.borrow_mut();
                                 let pending_requests = borrowed_op_state.borrow_mut::<ext_resources::PendingResourceRequestsTable>();
                                 if let Some(response_sender) = pending_requests.remove(&msg.resource_id) {
-                                    response_sender.send(ResourceResponse {payload: vec![]});
+                                    response_sender.send(ResourceResponse {payload: None});
                                 }
                             }
                             _ => {}
                         }
-
-                        context.sender.send(IsolateResponse {message: None}).await;
                     } else {
                         break;
                     }
                 },
                 resource_req = resource_request_receiver.recv() => {
                     println!("resource request");
+                    if let Some(resource_req) = resource_req {
+                        context.sender.send(IsolateResponse {message: Some(ScriptResourceRequest(IsolateScriptResourceRequestMessage {
+                            resource_id: resource_req.resource_id,
+                            kind: resource_req.kind,
+                            payload: resource_req.payload.unwrap_or_default()
+                        }))}).await;
+                    }
                 }
             }
         }
