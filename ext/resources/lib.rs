@@ -1,13 +1,11 @@
 extern crate deno_core;
 
 use deno_core::{Extension, OpState, ZeroCopyBuf, op_async, ByteString, include_js_files};
-use deno_core::error::AnyError;
+use deno_core::error::{AnyError, generic_error};
 use serde::Deserialize;
 use serde::Serialize;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
@@ -56,7 +54,7 @@ pub struct OpResourceRequestResponse {
 pub async fn op_resource_request_response(
     state: Rc<RefCell<OpState>>,
     args: OpResourceRequestArgs,
-    data: Option<ZeroCopyBuf>) -> Result<OpResourceRequestResponse, AnyError> {
+    _data: Option<ZeroCopyBuf>) -> Result<OpResourceRequestResponse, AnyError> {
     let (resp_sender, resp_receiver) = oneshot::channel::<ResourceResponse>();
 
     {
@@ -64,7 +62,7 @@ pub async fn op_resource_request_response(
 
         let req_sender = borrowed_state.borrow_mut::<ResourceRequestSender>();
         if let Some(req_sender) = req_sender {
-            req_sender.send(ResourceRequest {
+            let res = req_sender.send(ResourceRequest {
                 response_sender: Some(resp_sender),
                 kind: args.kind,
                 payload: match args.payload {
@@ -72,6 +70,9 @@ pub async fn op_resource_request_response(
                     None => None
                 },
             }).await;
+            if let Err(_) = res {
+                return Err(generic_error("Unable to communicate with the request manager"))
+            }
         }
     }
 
@@ -87,11 +88,11 @@ pub async fn op_resource_request_response(
 pub async fn op_resource_request(
     state: Rc<RefCell<OpState>>,
     args: OpResourceRequestArgs,
-    data: Option<ZeroCopyBuf>) -> Result<(), AnyError> {
+    _data: Option<ZeroCopyBuf>) -> Result<(), AnyError> {
     let mut borrowed_state = state.borrow_mut();
     let req_sender = borrowed_state.borrow_mut::<ResourceRequestSender>();
     if let Some(req_sender) = req_sender {
-        req_sender.send(ResourceRequest {
+        let res = req_sender.send(ResourceRequest {
             response_sender: None,
             kind: args.kind,
             payload: match args.payload {
@@ -99,6 +100,9 @@ pub async fn op_resource_request(
                 None => None
             },
         }).await;
+        if let Err(_) = res {
+            return Err(generic_error("Unable to communicate with the request manager"))
+        }
     }
 
     Ok(())

@@ -35,7 +35,6 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
         tokio::select! {
             service_req = service_c.receiver.recv() => {
                 if let Some(req) = service_req {
-                    println!("{:?}", req);
                     match req {
                         InitializeMessage(msg) => {
                             let res = runtime_c.sender.send(InitializeMessage(msg)).await;
@@ -76,13 +75,15 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
                         payload: resource_req.payload.unwrap_or_default()
                     })).await;
                     if let Err(_) = res { break; }
+                } else {
+                    break;
                 }
             }
         }
     }
 }
 
-pub fn runtime_manager(_state: Arc<GlobalState>, service_c: ServiceChannelPair) {
+pub fn runtime_manager(state: Arc<GlobalState>, service_c: ServiceChannelPair) {
     let mut tokio_runtime = tokio::runtime::Builder::new_current_thread()
         // IO isn't enabled because communication only happens through channels
         .enable_time()
@@ -90,7 +91,7 @@ pub fn runtime_manager(_state: Arc<GlobalState>, service_c: ServiceChannelPair) 
         .unwrap();
     let local_set = tokio::task::LocalSet::new();
 
-    let mut runtime = WrappedRuntime::new();
+    let mut runtime = WrappedRuntime::new(state);
     runtime.create_runtime();
     runtime.prepare_runtime();
 
@@ -107,57 +108,54 @@ pub fn runtime_manager(_state: Arc<GlobalState>, service_c: ServiceChannelPair) 
     local_set.block_on(&mut tokio_runtime, async move {
         tokio::task::spawn_local(runtime_messaging_task(service_c, runtime_c, resource_request_receiver));
 
-        loop {
-            while let Some(req) = from_receiver.recv().await {
-                match req {
-                    InitializeMessage(msg) => {
-                        let resource_table = &mut *runtime.resource_table();
+        while let Some(req) = from_receiver.recv().await {
+            match req {
+                InitializeMessage(msg) => {
+                    let resource_table = &mut *runtime.resource_table();
 
-                        if msg.cpu_time_limit == 0 {
-                            resource_table.cpu_time_limit = None
-                        } else {
-                            resource_table.cpu_time_limit = Some(Duration::from_millis(msg.cpu_time_limit))
-                        }
-
-                        if msg.execution_time_limit == 0 {
-                            resource_table.execution_time_limit = None
-                        } else {
-                            resource_table.execution_time_limit = Some(Duration::from_millis(msg.execution_time_limit))
-                        }
-
-                        if msg.resource_requests_limit == 0 {
-                            resource_table.resource_requests_limit = None
-                        } else {
-                            resource_table.resource_requests_limit = Some(msg.resource_requests_limit)
-                        }
+                    if msg.cpu_time_limit == 0 {
+                        resource_table.cpu_time_limit = None
+                    } else {
+                        resource_table.cpu_time_limit = Some(Duration::from_millis(msg.cpu_time_limit))
                     }
-                    ScriptScheduleMessage(msg) => {
-                        let res = runtime.execute_script(msg.content).await;
 
-                        println!("script done {:?}", res);
-                        match res {
-                            Ok(_) => {
-                                let res = to_sender.send(ScriptDoneMessage(IsolateScriptDoneMessage {
-                                    nonce: msg.nonce,
-                                    result: Some(isolate_script_done_message::Result::Success(IsolateScriptSuccess {
-                                        data: Default::default()
-                                    })),
-                                })).await;
-                                if let Err(_) = res { break; };
-                            }
-                            Err(e) => {
-                                let res = to_sender.send(ScriptDoneMessage(IsolateScriptDoneMessage {
-                                    nonce: msg.nonce,
-                                    result: Some(isolate_script_done_message::Result::Error(IsolateScriptError {
-                                        text: e.to_string()
-                                    })),
-                                })).await;
-                                if let Err(_) = res { break; };
-                            }
-                        };
+                    if msg.execution_time_limit == 0 {
+                        resource_table.execution_time_limit = None
+                    } else {
+                        resource_table.execution_time_limit = Some(Duration::from_millis(msg.execution_time_limit))
                     }
-                    _ => {}
+
+                    if msg.resource_requests_limit == 0 {
+                        resource_table.resource_requests_limit = None
+                    } else {
+                        resource_table.resource_requests_limit = Some(msg.resource_requests_limit)
+                    }
                 }
+                ScriptScheduleMessage(msg) => {
+                    let res = runtime.execute_script(msg.content).await;
+
+                    match res {
+                        Ok(_) => {
+                            let res = to_sender.send(ScriptDoneMessage(IsolateScriptDoneMessage {
+                                nonce: msg.nonce,
+                                result: Some(isolate_script_done_message::Result::Success(IsolateScriptSuccess {
+                                    data: Default::default()
+                                })),
+                            })).await;
+                            if let Err(_) = res { break; };
+                        }
+                        Err(e) => {
+                            let res = to_sender.send(ScriptDoneMessage(IsolateScriptDoneMessage {
+                                nonce: msg.nonce,
+                                result: Some(isolate_script_done_message::Result::Error(IsolateScriptError {
+                                    text: e.to_string()
+                                })),
+                            })).await;
+                            if let Err(_) = res { break; };
+                        }
+                    };
+                }
+                _ => {}
             }
         }
     });

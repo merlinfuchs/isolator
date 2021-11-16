@@ -12,6 +12,8 @@ use deno_core::v8::{CreateParams, IsolateHandle, Global, Value};
 use deno_core::error::{AnyError, generic_error};
 use futures::task::{Waker};
 use futures_util::task::{ArcWake, waker_ref};
+use crate::GlobalState;
+use uuid::Uuid;
 
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNTIME_SNAPSHOT.bin"));
 const DEFAULT_SOFT_HEAP_LIMIT: usize = 1 << 20;
@@ -92,7 +94,9 @@ pub struct SharedRuntimeState {
 }
 
 pub struct WrappedRuntime {
+    pub id: String,
     pub state: Arc<SharedRuntimeState>,
+    global_state: Arc<GlobalState>,
     soft_heap_limit: usize,
     hard_heap_limit: Option<usize>,
 
@@ -100,16 +104,20 @@ pub struct WrappedRuntime {
 }
 
 impl WrappedRuntime {
-    pub fn new() -> Self {
-        return Self {
+    pub fn new(global_state: Arc<GlobalState>) -> Self {
+        let res = Self {
+            id: Uuid::new_v4().to_simple().to_string(),
             state: Arc::new(SharedRuntimeState {
                 resource_table: Mutex::new(ExecutionResourceTable::default()),
                 isolate_handle: Mutex::new(None),
             }),
+            global_state,
             soft_heap_limit: DEFAULT_SOFT_HEAP_LIMIT,
             hard_heap_limit: None,
             runtime: None,
         };
+        res.register_globally();
+        return res
     }
 
     pub fn resource_table(&self) -> MutexGuard<ExecutionResourceTable> {
@@ -239,7 +247,6 @@ impl WrappedRuntime {
         self.cleanup_wakeup();
 
         loop {
-            println!("Poll");
             if let Some(result) = self.poll_and_wait().await {
                 break result;
             }
@@ -267,5 +274,25 @@ impl WrappedRuntime {
         }
     }
 
+    fn register_globally(&self) {
+        let mut runtimes_guard = self.global_state.runtimes.lock().unwrap();
+        let runtimes = &mut *runtimes_guard;
+
+        runtimes.insert(self.id.clone(), self.state.clone());
+    }
+
+    fn unregister_globally(&self) {
+        let mut runtimes_guard = self.global_state.runtimes.lock().unwrap();
+        let runtimes = &mut *runtimes_guard;
+
+        runtimes.remove(&self.id);
+    }
+
     pub fn _teardown_runtime() {}
+}
+
+impl Drop for WrappedRuntime {
+    fn drop(&mut self) {
+        self.unregister_globally();
+    }
 }
