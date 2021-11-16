@@ -5,6 +5,7 @@
 
     async function makeResourceRequestWithResponse(kind, payload) {
         const result = await core.opAsync("op_resource_request_response", {kind, payload})
+        return result.payload
     }
 
     async function makeResourceRequest(kind, payload) {
