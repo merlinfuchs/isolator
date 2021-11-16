@@ -4,7 +4,8 @@ import grpc
 import asyncio
 
 from service_pb2_grpc import IsolatorStub
-from service_pb2 import IsolateRequest, InitializeIsolateMessage, ScheduleIsolateScriptMessage
+from service_pb2 import IsolateRequest, InitializeIsolateMessage, ScheduleIsolateScriptMessage, \
+    IsolateScriptResourceResponseMessage
 
 
 async def main():
@@ -13,20 +14,28 @@ async def main():
 
     stream = isolator.AcquireIsolate()
 
-    print("send initialize")
     await stream.write(IsolateRequest(initialize_message=InitializeIsolateMessage()))
 
-    print("send schedule")
     script = """
-    Isolator.makeResourceRequestWithResponse('test', JSON.stringify({yeet: 5}))
+    async function test() {
+        resp = await Isolator.makeResourceRequestWithResponse('read_file', 'test.txt')
+        Deno.core.opSync('op_print', resp)
+    }
+    
+    test()
     """
-    await stream.write(IsolateRequest(schedule_message=ScheduleIsolateScriptMessage(content=script)))
+    await stream.write(IsolateRequest(script_schedule_message=ScheduleIsolateScriptMessage(content=script)))
 
     async for resp in stream:
-        print(type(resp), resp)
-        print(resp.script_resource_request)
-        if hasattr(resp, "script_resource_request"):
-            print(json.loads(resp.script_resource_request.payload))
+        if resp.HasField("script_resource_request"):
+            msg = resp.script_resource_request
+            if msg.kind == "read_file":
+                filename = msg.payload.decode("utf-8")
+                with open(filename, "rb") as fp:
+                    await stream.write(IsolateRequest(script_resource_response=IsolateScriptResourceResponseMessage(
+                        resource_id=msg.resource_id,
+                        payload=fp.read()
+                    )))
 
 
 asyncio.run(main())
