@@ -21,8 +21,8 @@ use crate::service::isolator::{
 use uuid::Uuid;
 
 pub struct ServiceChannelPair {
-    pub sender: mpsc::Sender<IsolateResponse>,
-    pub receiver: mpsc::Receiver<IsolateRequest>,
+    pub sender: mpsc::Sender<isolate_response::Message>,
+    pub receiver: mpsc::Receiver<isolate_request::Message>,
 }
 
 pub struct RuntimeChannelPair {
@@ -38,14 +38,14 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
             service_req = service_c.receiver.recv() => {
                 if let Some(req) = service_req {
                     println!("{:?}", req);
-                    match req.message {
-                        Some(InitializeMessage(msg)) => {
+                    match req {
+                        InitializeMessage(msg) => {
                             runtime_c.sender.send(InitializeMessage(msg)).await;
                         },
-                        Some(ScheduleMessage(msg)) => {
+                        ScheduleMessage(msg) => {
                             runtime_c.sender.send(ScheduleMessage(msg)).await;
                         },
-                        Some(ScriptResourceResponse(msg)) => {
+                        ScriptResourceResponse(msg) => {
                             if let Some(response_sender) = pending_resource_requests.remove(&msg.resource_id) {
                                 response_sender.send(ResourceResponse {payload: Some(msg.payload)});
                             }
@@ -64,11 +64,11 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
                         pending_resource_requests.insert(resource_id.clone(), response_sender);
                     }
 
-                    service_c.sender.send(IsolateResponse {message: Some(ScriptResourceRequest(IsolateScriptResourceRequestMessage {
+                    service_c.sender.send(ScriptResourceRequest(IsolateScriptResourceRequestMessage {
                         resource_id: resource_id,
                         kind: resource_req.kind,
                         payload: resource_req.payload.unwrap_or_default()
-                    }))}).await;
+                    })).await;
                 }
             }
         }
@@ -125,7 +125,8 @@ pub fn runtime_manager(state: Arc<GlobalState>, mut service_c: ServiceChannelPai
                         }
                     }
                     ScheduleMessage(msg) => {
-                        runtime.execute_script(msg.content).await;
+                        let res = runtime.execute_script(msg.content).await;
+                        println!("script done {:?}", res);
                     }
                     _ => {}
                 }

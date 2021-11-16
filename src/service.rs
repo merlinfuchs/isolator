@@ -43,7 +43,7 @@ impl Isolator for IsolatorService {
                 tokio::select! {
                     resp = from_receiver.recv() => {
                         if let Some(resp) = resp {
-                            yield resp
+                            yield IsolateResponse {message: Some(resp)}
                         } else {
                             break;
                         }
@@ -51,7 +51,9 @@ impl Isolator for IsolatorService {
                     req = stream.next() => {
                         if let Some(req) = req {
                             if let Ok(req) = req {
-                                to_sender.send(req).await;
+                                if let Some(msg) = req.message {
+                                    to_sender.send(msg).await;
+                                }
                             } else {
                                 break;
                             }
