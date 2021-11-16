@@ -113,7 +113,6 @@ dependencies = [
  "deno_core",
  "serde",
  "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -412,6 +411,7 @@ dependencies = [
  "tokio-stream",
  "tonic",
  "tonic-build",
+ "uuid",
 ]
 
 [[package]]

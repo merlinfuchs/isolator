@@ -7,7 +7,7 @@ use futures_util::StreamExt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use crate::GlobalState;
-use crate::manager::RuntimeContext;
+use crate::manager::ServiceChannelPair;
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 
@@ -19,7 +19,7 @@ pub mod isolator {
 
 pub struct IsolatorService {
     pub state: Arc<GlobalState>,
-    pub scheduler: mpsc::Sender<RuntimeContext>,
+    pub scheduler: mpsc::Sender<ServiceChannelPair>,
 }
 
 #[tonic::async_trait]
@@ -30,12 +30,12 @@ impl Isolator for IsolatorService {
         let (to_sender, to_receiver) = mpsc::channel(10);
         let (from_sender, mut from_receiver) = mpsc::channel(10);
 
-        let context = RuntimeContext {
+        let service_c = ServiceChannelPair {
             receiver: to_receiver,
             sender: from_sender,
         };
 
-        self.scheduler.send(context).await;
+        self.scheduler.send(service_c).await;
         let mut stream = request.into_inner();
 
         let output = async_stream::try_stream! {
