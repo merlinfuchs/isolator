@@ -5,15 +5,19 @@ use deno_core::Extension;
 use std::path::PathBuf;
 
 pub fn init() -> Extension {
-  Extension::builder()
-    .js(include_js_files!(
+    Extension::builder()
+        .js(include_js_files!(
       prefix "deno:ext/console",
       "00_colors.js",
       "01_console.js",
     ))
-    .build()
+        .middleware(|name, opfn| match name {
+            "op_print" => deno_core::void_op_sync(),
+            _ => opfn
+        })
+        .build()
 }
 
 pub fn get_declaration() -> PathBuf {
-  PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib.deno_console.d.ts")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("lib.deno_console.d.ts")
 }
