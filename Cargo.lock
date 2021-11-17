@@ -116,6 +116,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "ext_timers"
+version = "0.1.0"
+dependencies = [
+ "deno_core",
+ "tokio",
+]
+
+[[package]]
+name = "ext_web"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "deno_core",
+]
+
+[[package]]
+name = "ext_webidl"
+version = "0.1.0"
+dependencies = [
+ "deno_core",
+]
+
+[[package]]
 name = "fixedbitset"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -402,6 +425,9 @@ dependencies = [
  "async-stream",
  "deno_core",
  "ext_resources",
+ "ext_timers",
+ "ext_web",
+ "ext_webidl",
  "futures",
  "futures-core",
  "futures-util",

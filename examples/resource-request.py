@@ -19,7 +19,8 @@ async def main():
     script = """
     async function test() {
         resp = await Isolator.makeResourceRequestWithResponse('read_file', 'test.txt')
-        Deno.core.opSync('op_print', resp)
+        let t = new Date();
+        print(JSON.stringify(t))
     }
     
     test()
@@ -27,6 +28,7 @@ async def main():
     await stream.write(IsolateRequest(script_schedule_message=ScheduleIsolateScriptMessage(content=script)))
 
     async for resp in stream:
+        print(resp)
         if resp.HasField("script_resource_request"):
             msg = resp.script_resource_request
             if msg.kind == "read_file":

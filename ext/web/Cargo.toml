@@ -1,0 +1,12 @@
+[package]
+name = "ext_web"
+version = "0.1.0"
+description = "Web API implementation for Isolator"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+deno_core = "0.107.0"
+base64 = "0.13.0"

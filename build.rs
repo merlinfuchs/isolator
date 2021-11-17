@@ -26,6 +26,9 @@ fn get_js_files(dir: &str) -> Vec<PathBuf> {
 
 fn create_runtime() -> JsRuntime {
     let extensions = vec![
+        ext_webidl::init(),
+        ext_web::init(),
+        ext_timers::init(),
         ext_resources::init()
     ];
 

@@ -16,7 +16,7 @@ use crate::GlobalState;
 use uuid::Uuid;
 
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNTIME_SNAPSHOT.bin"));
-const DEFAULT_SOFT_HEAP_LIMIT: usize = 1 << 20;
+const DEFAULT_SOFT_HEAP_LIMIT: usize = 8 << 20;
 
 #[derive(Default)]
 pub struct ExecutionResourceTable {
@@ -135,7 +135,10 @@ impl WrappedRuntime {
             .heap_limits(0, self.soft_heap_limit);
 
         let extensions = vec![
-            ext_resources::init()
+            ext_webidl::init(),
+            ext_web::init(),
+            ext_timers::init(),
+            ext_resources::init(),
         ];
 
         let mut runtime = JsRuntime::new(RuntimeOptions {
@@ -165,14 +168,14 @@ impl WrappedRuntime {
     }
 
     pub fn prepare_runtime(&mut self) {
-        /* let runtime = self.runtime.as_mut().unwrap();
+        let runtime = self.runtime.as_mut().unwrap();
         runtime.execute_script(
             "<cleanup>",
             r#"
             __bootstrapRuntime();
             delete __boostrapRuntime;
         "#,
-        ).unwrap(); */
+        ).unwrap();
     }
 
     fn prepare_wakeup(&mut self) -> Result<(), AnyError> {

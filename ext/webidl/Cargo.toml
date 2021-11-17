@@ -1,0 +1,11 @@
+[package]
+name = "ext_webidl"
+version = "0.1.0"
+description = "WebIDL implementation for Isolator"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+deno_core = "0.107.0"

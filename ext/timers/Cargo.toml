@@ -1,0 +1,12 @@
+[package]
+name = "ext_timers"
+version = "0.1.0"
+description = "Web Timers implementation for Isolator"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+deno_core = "0.107.0"
+tokio = "1.13"
