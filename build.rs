@@ -29,7 +29,8 @@ fn create_runtime() -> JsRuntime {
         ext_webidl::init(),
         ext_web::init(),
         ext_timers::init(),
-        ext_resources::init()
+        ext_resources::init(),
+        ext_console::init()
     ];
 
     let mut runtime = JsRuntime::new(RuntimeOptions {

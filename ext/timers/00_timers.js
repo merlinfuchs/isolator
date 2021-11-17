@@ -581,11 +581,16 @@
     clearTimer(id);
   }
 
+    function sleep(delay) {
+      return new Promise(resolve => setTimeout(resolve, delay))
+    }
+
   window.__bootstrap.timers = {
     clearInterval,
     setInterval,
     clearTimeout,
     setTimeout,
+    sleep,
     handleTimerMacrotask,
     opStopGlobalTimer,
     opStartGlobalTimer,

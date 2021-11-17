@@ -14,12 +14,13 @@
     const core = Deno.core
     let hasBootstrapped = false;
 
+    const console = new bootstrap.console.Console(text => isolator.makeResourceRequest('console', text));
+
     function __bootstrapRuntime() {
         if (hasBootstrapped) return;
 
         core.setMacrotaskCallback(timers.handleTimerMacrotask);
 
-        delete window.console;
         delete window.Deno;
         delete window.__bootstrap;
         // https://github.com/denoland/deno/issues/4324
@@ -32,12 +33,12 @@
         atob: base64.atob,
         btoa: base64.btoa,
 
-        /* setTimeout: timers.setTimeout,
+        setTimeout: timers.setTimeout,
         clearTimeout: timers.clearTimeout,
         setInterval: timers.setInterval,
         clearInterval: timers.clearInterval,
-        sleep: timers.sleep, */
-        print: text => core.opSync('op_print', text),
+        sleep: timers.sleep,
+        console,
 
         Isolator: isolator,
         __bootstrapRuntime

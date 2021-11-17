@@ -20,6 +20,7 @@ ext_webidl = { path = "ext/webidl" }
 ext_web = { path = "ext/web" }
 ext_timers = { path = "ext/timers" }
 ext_resources = { path = "ext/resources" }
+ext_console = { path = "ext/console" }
 
 [build-dependencies]
 tonic-build = "0.6.0"
@@ -29,3 +30,4 @@ ext_webidl = { path = "ext/webidl" }
 ext_web = { path = "ext/web" }
 ext_timers = { path = "ext/timers" }
 ext_resources = { path = "ext/resources" }
+ext_console = { path = "ext/console" }

@@ -1,0 +1,11 @@
+[package]
+name = "ext_console"
+version = "0.1.0"
+description = "Web Console implementation for Isolator"
+edition = "2021"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+deno_core = "0.107.0"
