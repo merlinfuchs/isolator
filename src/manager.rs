@@ -5,13 +5,14 @@ use std::thread;
 use std::time::Duration;
 use ext_resources::{ResourceRequest, ResourceResponse};
 use tokio::sync::{mpsc, oneshot};
-use crate::runtime::WrappedRuntime;
+use crate::runtime::{DefaultScriptContext, ModuleScriptContext, ScriptContext, WrappedRuntime};
 use crate::service::isolator::{
     IsolateScriptResourceRequestMessage,
     isolate_request,
     isolate_response,
     IsolateScriptDoneMessage,
     isolate_script_done_message,
+    schedule_isolate_script_message::{ScriptKind},
     isolate_script_done_message::{IsolateScriptSuccess, IsolateScriptError},
     isolate_request::Message::{InitializeMessage, ScriptScheduleMessage, ScriptResourceResponse},
     isolate_response::Message::{ScriptResourceRequest, ScriptDoneMessage},
@@ -132,7 +133,18 @@ pub fn runtime_manager(state: Arc<GlobalState>, service_c: ServiceChannelPair) {
                     }
                 }
                 ScriptScheduleMessage(msg) => {
-                    let res = runtime.execute_script(msg.content).await;
+                    let script_context = match ScriptKind::from_i32(msg.kind) {
+                        Some(ScriptKind::Module) => ScriptContext::Module(ModuleScriptContext {
+                            name: "default".to_string(),
+                            content: msg.content,
+                        }),
+                        _ => ScriptContext::Default(DefaultScriptContext {
+                            name: "default".to_string(),
+                            content: msg.content,
+                        }),
+                    };
+
+                    let res = runtime.execute_script(script_context).await;
 
                     match res {
                         Ok(_) => {

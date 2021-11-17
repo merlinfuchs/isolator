@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::task::{Context, Poll};
 use std::time::{Duration, Instant};
-use deno_core::{JsRuntime, OpState, RuntimeOptions, Snapshot};
+use deno_core::{JsRuntime, ModuleSpecifier, OpState, RuntimeOptions, Snapshot};
 use deno_core::v8::{CreateParams, IsolateHandle, Global, Value};
 use deno_core::error::{AnyError, generic_error};
 use futures::task::{Waker};
@@ -35,6 +35,21 @@ pub struct ExecutionResourceTable {
 
     // the count of resource requests that have been made
     pub resource_requests_count: u32,
+}
+
+pub struct DefaultScriptContext {
+    pub name: String,
+    pub content: String,
+}
+
+pub struct ModuleScriptContext {
+    pub name: String,
+    pub content: String,
+}
+
+pub enum ScriptContext {
+    Default(DefaultScriptContext),
+    Module(ModuleScriptContext),
 }
 
 struct ExecutionPollState {
@@ -117,7 +132,7 @@ impl WrappedRuntime {
             runtime: None,
         };
         res.register_globally();
-        return res
+        return res;
     }
 
     pub fn resource_table(&self) -> MutexGuard<ExecutionResourceTable> {
@@ -139,7 +154,7 @@ impl WrappedRuntime {
             ext_web::init(),
             ext_timers::init(),
             ext_resources::init(),
-            ext_console::init()
+            ext_console::init(),
         ];
 
         let mut runtime = JsRuntime::new(RuntimeOptions {
@@ -242,24 +257,42 @@ impl WrappedRuntime {
         None
     }
 
-    async fn drive_execution(&mut self, script: String) -> Result<Global<Value>, AnyError> {
+    async fn drive_execution(&mut self, script_context: ScriptContext) -> Result<Option<Global<Value>>, AnyError> {
         self.prepare_wakeup()?;
 
         let runtime = self.runtime.as_mut().unwrap();
-        let res = runtime.execute_script("", script.as_str())?;
 
-        self.cleanup_wakeup();
+        match script_context {
+            ScriptContext::Default(script) => {
+                let res = runtime.execute_script("", script.content.as_str())?;
 
-        loop {
-            if let Some(result) = self.poll_and_wait().await {
-                break result;
+                loop {
+                    if let Some(result) = self.poll_and_wait().await {
+                        break result;
+                    }
+                }?;
+
+                Ok(Some(res))
             }
-        }?;
+            ScriptContext::Module(script) => {
+                let specifier = ModuleSpecifier::parse(&format!("https://isolator/{}", script.name)).unwrap();
 
-        Ok(res)
+                let module_id = runtime.load_side_module(&specifier, Some(script.content)).await?;
+                let receiver = runtime.mod_evaluate(module_id);
+
+                loop {
+                    if let Some(result) = self.poll_and_wait().await {
+                        break result;
+                    }
+                }?;
+
+                receiver.await??;
+                Ok(None)
+            }
+        }
     }
 
-    pub async fn execute_script(&mut self, script: String) -> Result<Global<Value>, AnyError> {
+    pub async fn execute_script(&mut self, script_context: ScriptContext) -> Result<Option<Global<Value>>, AnyError> {
         let execution_time_limit = {
             let resource_table = &mut *self.resource_table();
             resource_table.execution_time_limit
@@ -267,14 +300,14 @@ impl WrappedRuntime {
 
         if let Some(execution_time_limit) = execution_time_limit {
             tokio::select! {
-                res = self.drive_execution(script) => res,
+                res = self.drive_execution(script_context) => res,
                 // this stops the execution loop from outside
                 // can only kick in between two wakeups and is therefore not able to interrupt CPU intensive work
                 _ = tokio::time::sleep(execution_time_limit) =>
                     Err(generic_error("Isolate has run out of execution time").into())
             }
         } else {
-            self.drive_execution(script).await
+            self.drive_execution(script_context).await
         }
     }
 
