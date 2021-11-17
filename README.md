@@ -11,3 +11,9 @@ send so-called "Resource Requests" over the connection to the client. The client
 to the request with a so-called "Resource Response" again over the connection.  
 The client is therefore responsible for implementing necessary APIs to access external resources from the script. This
 communication concept makes it possible to provide a simple and secure implementation for a wide variety of applications.
+
+TODO: 
+- fix execution time limit to only count actual execution time
+- fix out of heap callback panic
+- support for loading modules
+- support for running modules

@@ -39,18 +39,14 @@ message IsolateScriptDoneMessage {
   }
 }
 
-message GetIsolateStatusMessage {
-
-}
-
 message IsolateScriptResourceRequestMessage {
-  string resource_id = 1;
+  string nonce = 1;
   string kind = 2;
   bytes payload = 3;
 }
 
 message IsolateScriptResourceResponseMessage {
-  string resource_id = 1;
+  string nonce = 1;
   bytes payload = 3;
 }
 
@@ -70,14 +66,6 @@ message IsolateResponse {
   }
 }
 
-message GetStatusRequest {
-
-}
-
-message GetStatusResponse {
-
-}
-
 message KillIsolatesRequest {
   bool all = 1;
   repeated string isolate_ids = 2;
@@ -87,8 +75,26 @@ message KillIsolatesResponse {
   repeated string killed_ids = 1;
 }
 
+message GetStatusRequest {
+}
+
+message GetStatusResponse {
+  uint32 isolate_count = 1;
+  uint32 threads_left = 2;
+}
+
+message DrainRequest {}
+
+message DrainResponse {}
+
+message KillRequest {}
+
+message KillResponse {}
+
 service Isolator {
   rpc AcquireIsolate(stream IsolateRequest) returns (stream IsolateResponse) {}
-  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {}
   rpc KillIsolates(KillIsolatesRequest) returns (KillIsolatesResponse) {}
+  rpc GetStatus(GetStatusRequest) returns (GetStatusResponse) {}
+  rpc Drain(DrainRequest) returns (DrainResponse) {}
+  rpc Kill(KillRequest) returns (KillResponse) {}
 }

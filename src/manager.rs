@@ -45,7 +45,7 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
                             if let Err(_) = res { break; }
                         },
                         ScriptResourceResponse(msg) => {
-                            if let Some(response_sender) = pending_resource_requests.remove(&msg.resource_id) {
+                            if let Some(response_sender) = pending_resource_requests.remove(&msg.nonce) {
                                 let _ = response_sender.send(ResourceResponse {payload: Some(msg.payload)});
                             }
                         }
@@ -64,13 +64,13 @@ async fn runtime_messaging_task(mut service_c: ServiceChannelPair, mut runtime_c
             }
             resource_req = resource_request_c.recv() => {
                 if let Some(resource_req) = resource_req {
-                    let resource_id = Uuid::new_v4().to_simple().to_string();
+                    let nonce = Uuid::new_v4().to_simple().to_string();
                     if let Some(response_sender) = resource_req.response_sender {
-                        pending_resource_requests.insert(resource_id.clone(), response_sender);
+                        pending_resource_requests.insert(nonce.clone(), response_sender);
                     }
 
                     let res = service_c.sender.send(ScriptResourceRequest(IsolateScriptResourceRequestMessage {
-                        resource_id: resource_id,
+                        nonce: nonce,
                         kind: resource_req.kind,
                         payload: resource_req.payload.unwrap_or_default()
                     })).await;
@@ -163,7 +163,7 @@ pub fn runtime_manager(state: Arc<GlobalState>, service_c: ServiceChannelPair) {
 
 pub fn thread_pool_manager(state: Arc<GlobalState>, mut receiver: mpsc::Receiver<ServiceChannelPair>) {
     let pool = threadpool::Builder::new()
-        .num_threads(100)
+        .num_threads(state.max_thread_count)
         .thread_stack_size(100_000)
         .build();
 

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use tonic::transport::Server;
 use std::sync::{Arc, Mutex};
+use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 use runtime::SharedRuntimeState;
 use std::thread;
@@ -15,13 +16,15 @@ mod manager;
 
 pub struct GlobalState {
     pub runtimes: Mutex<HashMap<String, Arc<SharedRuntimeState>>>,
+    pub max_thread_count: usize
 }
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let (scheduler_sender, scheduler_receiver) = mpsc::channel(1);
     let state = Arc::new(GlobalState {
-        runtimes: Mutex::new(HashMap::new())
+        runtimes: Mutex::new(HashMap::new()),
+        max_thread_count: 100
     });
 
     let thread_state = state.clone();
@@ -33,6 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let service = IsolatorService {
         state,
         scheduler: scheduler_sender,
+        accept_requests: AtomicBool::new(true)
     };
 
     let addr = "127.0.0.1:50051".parse().unwrap();
