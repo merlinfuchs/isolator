@@ -18,9 +18,12 @@ async def main():
 
     script = """
     async function test() {
+        console.log("cool");
+        await sleep(1000);
         resp = await Isolator.makeResourceRequestWithResponse('read_file', 'test.txt')
+        console.log(`response: ${resp}`);
         let t = new Date();
-        print(JSON.stringify(t))
+        console.error(t.toString())
     }
     
     test()
@@ -28,16 +31,19 @@ async def main():
     await stream.write(IsolateRequest(script_schedule_message=ScheduleIsolateScriptMessage(content=script)))
 
     async for resp in stream:
-        print(resp)
         if resp.HasField("script_resource_request"):
             msg = resp.script_resource_request
             if msg.kind == "read_file":
                 filename = msg.payload.decode("utf-8")
                 with open(filename, "rb") as fp:
                     await stream.write(IsolateRequest(script_resource_response=IsolateScriptResourceResponseMessage(
-                        resource_id=msg.resource_id,
+                        nonce=msg.nonce,
                         payload=fp.read()
                     )))
+            elif msg.kind == "console":
+                print(msg.payload.decode("utf-8"))
+        else:
+            print(resp)
 
 
 asyncio.run(main())
