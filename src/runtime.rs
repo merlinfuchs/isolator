@@ -14,6 +14,7 @@ use futures::task::{Waker};
 use futures_util::task::{ArcWake, waker_ref};
 use crate::GlobalState;
 use uuid::Uuid;
+use crate::modules::InternalModuleLoader;
 
 static RUNTIME_SNAPSHOT: &[u8] = include_bytes!(concat!(env!("OUT_DIR"), "/RUNTIME_SNAPSHOT.bin"));
 const DEFAULT_SOFT_HEAP_LIMIT: usize = 8 << 20;
@@ -157,12 +158,18 @@ impl WrappedRuntime {
             ext_console::init(),
         ];
 
+        let op_state_cell = Rc::new(RefCell::new(None));
+        let module_loader = InternalModuleLoader {op_state: op_state_cell.clone()};
+
         let mut runtime = JsRuntime::new(RuntimeOptions {
             startup_snapshot: Some(snapshot),
             create_params: Some(create_params),
             extensions,
+            module_loader: Some(Rc::new(module_loader)),
             ..Default::default()
         });
+
+        op_state_cell.replace(Some(runtime.op_state()));
 
         let isolate_handle = runtime.v8_isolate().thread_safe_handle();
         let hard_heap_limit = self.hard_heap_limit;

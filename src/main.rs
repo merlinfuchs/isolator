@@ -13,6 +13,7 @@ use service::isolator::isolator_server::IsolatorServer;
 mod service;
 mod runtime;
 mod manager;
+mod modules;
 
 pub struct GlobalState {
     pub runtimes: Mutex<HashMap<String, Arc<SharedRuntimeState>>>,

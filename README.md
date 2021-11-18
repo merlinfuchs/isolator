@@ -15,5 +15,4 @@ communication concept makes it possible to provide a simple and secure implement
 TODO: 
 - fix execution time limit to only count actual execution time
 - fix out of heap callback panic
-- support for loading modules
-- support for running modules
+- implement max resource request count
