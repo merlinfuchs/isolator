@@ -23,10 +23,10 @@ The approach of Isolator is pretty similar to that of Cloudflare Workers. You ca
 https://developers.cloudflare.com/workers/learning/security-model
 
 Now code that is completely isolated isn't very useful. (Schrödingers Cat paradox)
-Isolator exposes a single API to communicate with the outside called Resource requests. The client can send resource
+Isolator exposes a single API to communicate with the outside called Resource requests. The JS code can send resource
 requests in the form of a string that can be used to distinguish between different request types and a bytestring that
-can contain optional payload data. The client can optionally wait for a response for the resource request. This approach
-gives potential attackers a very small attack surface.
+can contain optional payload data. The JS code can optionally wait for a response for the resource request. This
+approach gives potential attackers a very small attack surface.
 
 V8 isolates are already very secure (if you trust Chrome to execute random code from the internet you can also trust
 this)
@@ -56,9 +56,9 @@ the InitializeIsolate message:
 
 - **soft_heap_limit**: The V8 isolate is terminated when this limited is reached. The isolate is still allowed to
   allocate more memory while the isolate is terminating to prevent the process for panicking.
-- **hard_heap_limit**: In very rare cases the V8 isolate can not be terminated and will be able to continue allocating more memory.
-  In this case the hard limit will kick in and disallow the isolate to allocate any more more memory. This usually causes
-  the whole process to panic. (still better than allowing the isolate to allocate unlimited memory)
+- **hard_heap_limit**: In very rare cases the V8 isolate can not be terminated and will be able to continue allocating
+  more memory. In this case the hard limit will kick in and disallow the isolate to allocate any more more memory. This
+  usually causes the whole process to panic. (still better than allowing the isolate to allocate unlimited memory)
 
 **The default (and custom) scripts that are loaded for each isolate at startup already consume 1 - 2 MB of heap. If the
 initial scripts don't fit into the heap limit the process will panic when the first isolate is created.**
@@ -101,6 +101,11 @@ a few default resource requests, and you can implement your own ones.
     ```
 
 ## Scaling
+
+If you want to run a large number of isolates in parallel (1000+) it probably makes sense to run multiple Isolator
+processes and balance the load between them.  
+Load balancing can be achieved by using Nginx as a reverse proxy. The `least_conn` balancing algorithm would make the
+most sense.
 
 ## TODO
 
