@@ -201,7 +201,7 @@ impl WrappedRuntime {
         ).unwrap();
     }
 
-    fn prepare_wakeup(&mut self) -> Result<(), AnyError> {
+    fn prepare_wakeup(&self) -> Result<(), AnyError> {
         let resource_table = &mut *self.resource_table();
 
         if let Some(started_at) = resource_table.started_at {
@@ -227,7 +227,7 @@ impl WrappedRuntime {
     }
 
     fn cleanup_wakeup(&mut self) {
-        let resource_table = &mut *self.resource_table();
+        let resource_table = &mut self.resource_table();
 
         if let Some(current_wakeup) = resource_table.current_wakeup {
             resource_table.cpu_time = resource_table.cpu_time.saturating_add(current_wakeup.elapsed());
@@ -265,13 +265,16 @@ impl WrappedRuntime {
     }
 
     async fn drive_execution(&mut self, script_context: ScriptContext) -> Result<Option<Global<Value>>, AnyError> {
-        self.prepare_wakeup()?;
-
-        let runtime = self.runtime.as_mut().unwrap();
-
         match script_context {
             ScriptContext::Default(script) => {
-                let res = runtime.execute_script("", script.content.as_str())?;
+                self.prepare_wakeup()?;
+
+                let runtime = self.runtime.as_mut().unwrap();
+                let res = runtime.execute_script("", script.content.as_str());
+
+                self.cleanup_wakeup();
+
+                let res = res?;
 
                 loop {
                     if let Some(result) = self.poll_and_wait().await {
@@ -284,8 +287,13 @@ impl WrappedRuntime {
             ScriptContext::Module(script) => {
                 let specifier = ModuleSpecifier::parse(&format!("https://isolator/{}", script.name)).unwrap();
 
+                self.prepare_wakeup()?;
+
+                let runtime = self.runtime.as_mut().unwrap();
                 let module_id = runtime.load_side_module(&specifier, Some(script.content)).await?;
                 let receiver = runtime.mod_evaluate(module_id);
+
+                self.cleanup_wakeup();
 
                 loop {
                     if let Some(result) = self.poll_and_wait().await {

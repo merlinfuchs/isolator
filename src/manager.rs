@@ -199,12 +199,11 @@ pub fn cpu_time_manager(state: Arc<GlobalState>) {
 
             if let Some(current_wakeup) = resource_table.current_wakeup {
                 if let Some(cpu_time_limit) = resource_table.cpu_time_limit {
-                    let cpu_elapsed = resource_table.cpu_time + current_wakeup.elapsed();
-
                     let mut isolate_guard = runtime.isolate_handle.lock().unwrap();
                     let isolate_handle = &mut *isolate_guard;
 
                     if let Some(isolate_handle) = isolate_handle {
+                        let cpu_elapsed = resource_table.cpu_time + current_wakeup.elapsed();
                         if cpu_elapsed > cpu_time_limit {
                             isolate_handle.terminate_execution();
                         }
